@@ -6,7 +6,7 @@
 <section class="workspace" aria-label="動画を保存"><form id="form"><div class="labelrow"><label for="url">YouTubeのリンク</label><span class="badge"><span class="dot" id="dot"></span><span id="engine">ログイン不要</span></span></div><div class="inputrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="m10 13 4-4m-6 6-2 2a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m4 2 2-2a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0" transform="translate(1 0) scale(.9)"/></svg><input id="url" type="url" placeholder="https://www.youtube.com/watch?v=…" autocomplete="off" required aria-describedby="hint status"><button type="button" class="paste" id="paste">貼り付け</button></div><p class="hint" id="hint">通常の動画・Shortsのリンクに対応</p>
 <div id="preview" class="preview reveal" hidden><img id="thumb" alt="動画のサムネイル" referrerpolicy="no-referrer"><div><h2 id="videoTitle">リンクを読み込みました</h2><p id="videoMeta">形式を選んで保存できます</p></div></div>
 <div class="options"><div><span class="fieldlabel">保存形式</span><div class="segments" role="group" aria-label="保存形式"><button type="button" aria-pressed="true" data-kind="video">動画 <small>MP4</small></button><button type="button" aria-pressed="false" data-kind="audio">音声 <small>MP3</small></button></div></div><div><label for="quality">画質</label><select id="quality"><option value="1080">1080p · フルHD</option><option value="720">720p · HD</option><option value="480">480p · 軽いファイル</option><option value="2160">4K · 高画質</option></select></div></div>
-<button class="primary" id="submit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></svg><span id="submitText">保存ボタンを表示</span></button><p class="below" id="below">リンクは外部のVideo Download APIへ送信して処理します。</p><p class="status" id="status" role="status" aria-live="polite"></p><progress id="progress" max="100" hidden aria-label="ダウンロード進捗"></progress></form><section id="providerPanel" class="provider-panel reveal" aria-label="ファイルの取得" hidden><h2>ファイルを取得</h2><p id="providerHint" role="status" aria-live="polite"></p><div id="providerFrame"></div><a id="openProvider" target="_blank" rel="noopener noreferrer">表示できない場合は、取得画面を開く ↗</a><p class="provider-credit">取得・変換はVideo Download APIが提供します。</p></section></section>
+<button class="primary" id="submit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></svg><span id="submitText">保存ボタンを表示</span></button><p class="below" id="below">リンクは外部のVideo Download APIへ送信して処理します。</p><p class="status" id="status" role="status" aria-live="polite"></p><progress id="progress" max="100" hidden aria-label="ダウンロード進捗"></progress></form><section id="providerPanel" class="provider-panel reveal" aria-label="ファイルの取得" hidden><h2>ファイルを取得</h2><p id="providerHint" role="status" aria-live="polite"></p><div id="providerFrame"></div><p class="provider-credit">取得・変換はVideo Download APIが提供します。</p></section></section>
 <div class="features"><div class="feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3z"/></svg><div><b>見たい画質で</b><p>最大4K。元の動画に合わせて保存。</p></div></div><div class="feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13M9 8l12-2"/><ellipse cx="6" cy="18" rx="3" ry="2"/><ellipse cx="18" cy="16" rx="3" ry="2"/></svg><div><b>音声だけでも</b><p>MP3に変換して、音声を取り出す。</p></div></div><div class="feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="9" width="16" height="12" rx="3"/><path d="M8 9V6a4 4 0 0 1 8 0v3"/></svg><div><b>スマホだけで保存</b><p>リンクを貼って、この画面から保存。</p></div></div></div><section id="activity" class="activity" hidden><h2>最近の保存</h2><div id="history"></div></section></main>
 <footer><span>Frame <span aria-hidden="true">/</span> シンプルに、心地よく。</span><span>自分の動画や、保存許可のある動画にご利用ください。</span></footer>
 <dialog id="setup"><div class="dialogtop"><h2>Frameをはじめよう。</h2><button class="close" aria-label="閉じる">×</button></div><p>実際の動画取得は、PCで動くFrameエンジンが行います。</p><ol><li>PCで下のZIPをダウンロードして展開。</li><li>Python 3.11以降・FFmpeg・Node.jsを準備。詳しくは同梱の「README」を確認。</li><li>Windowsは「start.bat」をダブルクリック。</li><li>開いた画面にリンクを貼って保存。</li></ol><a class="primary downloadlink" href="/Frame-PC.zip" download>PC版をダウンロード <span aria-hidden="true">↓</span></a><p class="subtle">この公開ページだけではYouTubeのファイル取得はできません。PC版も同じデザインです。スマホ単独での取得には対応していません。</p></dialog>
@@ -41,11 +41,11 @@ $('#form').onsubmit=e=>{
   const link=new URL('https://p.savenow.to/api/button/');
   link.searchParams.set('url',video.url);link.searchParams.set('f',format);link.searchParams.set('color','#0768ed');
   const frame=document.createElement('iframe');frame.title=kind==='audio'?'MP3音声の取得ボタン':'MP4動画の取得ボタン';
-  frame.setAttribute('sandbox','allow-scripts allow-same-origin allow-forms allow-downloads allow-popups');
+  frame.setAttribute('sandbox','allow-scripts allow-same-origin allow-forms allow-downloads allow-top-navigation-by-user-activation');
   frame.referrerPolicy='strict-origin-when-cross-origin';frame.src=link.href;
   frame.onload=()=>{$('#providerHint').textContent='下の「Download」ボタンで取得を開始し、完了後に「Download Now!」を押して保存してください。';};
-  frame.onerror=()=>{$('#providerHint').textContent='取得画面を表示できませんでした。下のリンクから開いてください。';};
-  $('#providerFrame').append(frame);$('#openProvider').href=link.href;
+  frame.onerror=()=>{$('#providerHint').textContent='取得画面を表示できませんでした。ページを更新して再度お試しください。';};
+  $('#providerFrame').append(frame);
   $('#providerHint').textContent='取得画面を読み込んでいます…';$('#providerPanel').hidden=false;
   $('#submitText').textContent='保存ボタンを更新';
   $('#providerPanel').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'nearest'});
@@ -54,7 +54,7 @@ $('#setup h2').textContent='Frameの使い方';
 $('#setup p').textContent='PCの起動やGoogleログインは不要です。取得処理には外部サービスを利用します。';
 $('#setup ol').innerHTML='<li>YouTubeの動画URLを貼り付けます。</li><li>MP4動画またはMP3音声と、画質を選びます。</li><li>「保存ボタンを表示」を押します。</li><li>表示された「Download」を押して取得を開始します。</li><li>完了後に「Download Now!」を押すと保存できます。</li>';
 $('#setup .downloadlink').hidden=true;
-$('#setup .subtle').textContent='提供元の混雑や動画の公開状態により取得できない場合があります。表示されない場合は「取得画面を開く」を使ってください。';
+$('#setup .subtle').textContent='提供元の混雑や動画の公開状態により取得できない場合があります。広告ポップアップは許可しない設定です。取得画面が表示されない場合はページを更新してください。';
 $('#engine').textContent='ログイン不要';
 $('#below').textContent='リンクは外部のVideo Download APIへ送信して処理します。';
 renderHistory();
