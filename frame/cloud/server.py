@@ -176,7 +176,11 @@ class Handler(BaseHTTPRequestHandler):
         except (ValueError, TypeError, AttributeError) as exc:
             self.reply(400, {'error': str(exc)})
         except Exception as exc:
-            self.reply(502, {'error': '動画情報を取得できませんでした。公開状態・ネット接続を確認してください。 ' + str(exc)[:400]})
+            detail = str(exc)
+            if 'Sign in to confirm' in detail or 'not a bot' in detail:
+                self.reply(502, {'error': 'YouTubeがこのサーバーからの取得に本人確認を求めています。この公開サーバーでは動画を取得できません。'})
+            else:
+                self.reply(502, {'error': '動画情報を取得できませんでした。動画の公開状態と接続を確認してください。'})
 
 if __name__ == '__main__':
     import yt_dlp
