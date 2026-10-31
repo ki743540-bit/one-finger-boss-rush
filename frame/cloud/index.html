@@ -20,7 +20,7 @@ function parseURL(value){const u=new URL(value);let id;if(!['https:','http:'].in
 $('#paste').onclick=async()=>{try{$('#url').value=await navigator.clipboard.readText();$('#url').focus();$('#url').dispatchEvent(new Event('change'))}catch{message('入力欄を長押し、または Ctrl+V で貼り付けてください。')}};
 function showPreview(v){$('#thumb').hidden=false;$('#thumb').onerror=()=>{$('#thumb').hidden=true};$('#thumb').src='https://i.ytimg.com/vi/'+v.id+'/hqdefault.jpg';$('#videoTitle').textContent=v.title||'YouTube動画';$('#videoMeta').textContent=v.title?(v.channel||'')+' · '+Math.floor((v.duration||0)/60)+'分':'形式を選び、保存ボタンを表示してください。';$('#preview').hidden=false}
 $('#url').onchange=()=>{video=null;try{showPreview(parseURL($('#url').value));message('')}catch{$('#preview').hidden=true}};
-for(const b of document.querySelectorAll('[data-kind]'))b.onclick=()=>{if(busy)return;kind=b.dataset.kind;document.querySelectorAll('[data-kind]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));$('#quality').disabled=kind==='audio';$('#quality').setAttribute('aria-label',kind==='audio'?'音声はMP3音声':'画質');$('#below').textContent=kind==='audio'?'MP3音声として取得します。音質は提供元の形式により変わります。':local?'選択画質以下で最適な形式を取得します。':'リンクは外部のVideo Download APIへ送信して処理します。'};
+for(const b of document.querySelectorAll('[data-kind]'))b.onclick=()=>{if(busy)return;kind=b.dataset.kind;document.querySelectorAll('[data-kind]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));$('#quality').disabled=kind==='audio';$('#quality').setAttribute('aria-label',kind==='audio'?'MP3音声':'画質');$('#below').textContent=kind==='audio'?'MP3音声として取得します。音質は提供元の形式により変わります。':local?'選択画質以下で最適な形式を取得します。':'リンクは外部のVideo Download APIへ送信して処理します。'};
 async function api(path,body){const r=await fetch(path,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});const j=await r.json();if(!r.ok)throw Error(j.error||'処理に失敗しました。');return j}
 function setBusy(on){busy=on;$('#submit').disabled=on;$('#url').disabled=on;$('#paste').disabled=on;document.querySelectorAll('[data-kind]').forEach(b=>b.disabled=on);$('#quality').disabled=on||kind==='audio';$('#submitText').textContent=on?'処理しています…':local?'ダウンロード':'ダウンロード'}
 function historyAdd(title){try{const rows=JSON.parse(localStorage.getItem('frame-history')||'[]');rows.unshift({title,date:new Date().toLocaleDateString('ja-JP')});localStorage.setItem('frame-history',JSON.stringify(rows.slice(0,5)));renderHistory()}catch{}}
@@ -30,6 +30,7 @@ function clearProvider(){
   $('#submitText').textContent='保存ボタンを表示';
 }
 $('#url').addEventListener('input',clearProvider);
+$('#url').addEventListener('change',clearProvider);
 $('#quality').addEventListener('change',clearProvider);
 for(const button of document.querySelectorAll('[data-kind]'))button.addEventListener('click',()=>{clearProvider();$('#below').textContent='リンクは外部のVideo Download APIへ送信して処理します。'});
 $('#form').onsubmit=e=>{
