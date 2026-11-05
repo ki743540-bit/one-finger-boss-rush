@@ -2,7 +2,7 @@
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
-import json, threading, uuid, re, shutil, mimetypes, time, webbrowser, os
+import json, threading, uuid, re, shutil, mimetypes, time, webbrowser, os, subprocess
 
 ROOT = Path(__file__).resolve().parent
 OUT = ROOT / 'downloads'
@@ -12,6 +12,50 @@ LOCK = threading.Lock()
 ACTIVE = threading.Semaphore(1)
 PORT = int(os.environ.get('PORT', '8765'))
 PUBLIC_ORIGIN = os.environ.get('FRAME_PUBLIC_ORIGIN', os.environ.get('RENDER_EXTERNAL_URL', '')).rstrip('/')
+MAX_UPLOAD = 128 * 1024 * 1024
+
+def cleanup_jobs():
+    with LOCK:
+        for ident in list(JOBS):
+            if time.time() - JOBS[ident]['created'] > 3600 and JOBS[ident]['state'] in ('done', 'error'):
+                shutil.rmtree(OUT / ident, ignore_errors=True)
+                del JOBS[ident]
+
+def reap_jobs():
+    while True:
+        time.sleep(60)
+        cleanup_jobs()
+
+def editor_mp4(ident):
+    # Repackage fragmented MP4 without re-encoding or dropping frames/audio.
+    folder = OUT / ident
+    source = folder / 'source.mp4'
+    target = folder / 'Frame-edit.mp4'
+    try:
+        probe = subprocess.run(['ffprobe', '-v', 'error', '-protocol_whitelist', 'file,pipe',
+            '-format_whitelist', 'mov', '-show_entries', 'stream=codec_type:format=duration',
+            '-of', 'json', str(source)], capture_output=True, timeout=30, check=True)
+        info = json.loads(probe.stdout)
+        if not any(s.get('codec_type') == 'video' for s in info.get('streams', [])):
+            raise ValueError('映像を含むMP4ファイルを選んでください。')
+        if not 0 < float(info.get('format', {}).get('duration', 0)) <= 600:
+            raise ValueError('10分以内のMP4動画を選んでください。')
+        patch(ident, message='画質を変えずにMP4を整えています…')
+        subprocess.run(['ffmpeg', '-nostdin', '-v', 'error', '-xerror',
+            '-protocol_whitelist', 'file,pipe', '-format_whitelist', 'mov', '-i', str(source),
+            '-map', '0:v:0', '-map', '0:a:0?', '-c', 'copy', '-map_metadata', '-1',
+            '-movflags', '+faststart', '-y', str(target)],
+            capture_output=True, timeout=120, check=True)
+        if not target.is_file() or not target.stat().st_size:
+            raise ValueError('動画を整えられませんでした。元のファイルを確認してください。')
+        source.unlink()
+        patch(ident, state='done', percent=100, file=str(target), message='編集用のMP4を準備しました。')
+    except Exception as exc:
+        shutil.rmtree(folder, ignore_errors=True)
+        detail = str(exc) if isinstance(exc, ValueError) else 'MP4を読み取れませんでした。保存が完了した動画ファイルを選んでください。'
+        patch(ident, state='error', error=detail)
+    finally:
+        ACTIVE.release()
 
 def video_url(raw):
     if not isinstance(raw, str):
@@ -137,6 +181,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         if not self.allowed(): return
+        if self.path == '/api/editor':
+            return self.receive_editor()
         try:
             if self.headers.get_content_type() != 'application/json':
                 return self.reply(415, {'error': 'JSON形式で送信してください。'})
@@ -182,11 +228,53 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self.reply(502, {'error': '動画情報を取得できませんでした。動画の公開状態と接続を確認してください。'})
 
+    def receive_editor(self):
+        if self.headers.get_content_type() != 'application/octet-stream':
+            return self.reply(415, {'error': '動画ファイルを選んでください。'})
+        try:
+            size = int(self.headers.get('Content-Length', '0'))
+        except ValueError:
+            return self.reply(400, {'error': 'ファイルサイズを確認してください。'})
+        if not 0 < size <= MAX_UPLOAD:
+            return self.reply(413, {'error': '128MB以内のMP4動画を選んでください。'})
+        if not shutil.which('ffmpeg') or not shutil.which('ffprobe'):
+            return self.reply(503, {'error': '変換処理を準備できませんでした。'})
+        if not ACTIVE.acquire(blocking=False):
+            return self.reply(409, {'error': 'ほかの処理が進行中です。少し待ってから再度お試しください。'})
+        ident = uuid.uuid4().hex
+        folder = OUT / ident
+        try:
+            cleanup_jobs()
+            with LOCK:
+                if len(JOBS) >= 32:
+                    raise ValueError('処理が混み合っています。しばらくしてから再度お試しください。')
+                JOBS[ident] = {'state': 'running', 'percent': None, 'created': time.time(), 'message': '動画を受け取りました。'}
+            folder.mkdir()
+            self.connection.settimeout(120)
+            with (folder / 'source.mp4').open('wb') as f:
+                remaining = size
+                while remaining:
+                    chunk = self.rfile.read(min(256 * 1024, remaining))
+                    if not chunk:
+                        raise ValueError('送信が中断されました。もう一度ファイルを選んでください。')
+                    f.write(chunk)
+                    remaining -= len(chunk)
+        except Exception as exc:
+            shutil.rmtree(folder, ignore_errors=True)
+            with LOCK:
+                JOBS.pop(ident, None)
+            ACTIVE.release()
+            return self.reply(400, {'error': str(exc) if isinstance(exc, ValueError) else '動画を受け取れませんでした。'})
+        threading.Thread(target=editor_mp4, args=(ident,), daemon=True).start()
+        self.reply(202, {'id': ident})
+
 if __name__ == '__main__':
     import yt_dlp
     httpd = ThreadingHTTPServer(('0.0.0.0' if PUBLIC_ORIGIN else '127.0.0.1', PORT), Handler)
+    threading.Thread(target=reap_jobs, daemon=True).start()
     print(f'Frame: http://127.0.0.1:{PORT}  / 終了するには Ctrl+C')
     if not PUBLIC_ORIGIN:
         threading.Timer(1, lambda: webbrowser.open(f'http://127.0.0.1:{PORT}')).start()
     try: httpd.serve_forever()
     except KeyboardInterrupt: httpd.server_close()
+
