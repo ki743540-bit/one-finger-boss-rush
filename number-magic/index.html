@@ -36,7 +36,7 @@ function parseNumber(raw){
   const kana=s.replace(/[\u30A1-\u30F6]/g,c=>String.fromCharCode(c.charCodeAt(0)-0x60))
     .replace(/じっ|じゅっ/g,'じゅう').replace(/(?:です|だよ|でした|だ|ね|よ)$/,'');
   if(kana==='ひゃく')return 100;
-  const ten=new RegExp('^('+units+')?じゅう('+units+')?</body></html>);
+  const ten=new RegExp('^('+units+')?じゅう('+units+')?$');
   const tm=kana.match(ten);
   if(tm){const n=(tm[1]?kanaDigits[tm[1]]:1)*10+(tm[2]?kanaDigits[tm[2]]:0);if(n>=1&&n<=100)return n;}
   if(Object.prototype.hasOwnProperty.call(kanaDigits,kana))return kanaDigits[kana];
