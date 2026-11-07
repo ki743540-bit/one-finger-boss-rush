@@ -4,7 +4,7 @@
 *{box-sizing:border-box}body{margin:0;background:#090b10;color:#f9fafb;font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif;min-height:100dvh}main{max-width:500px;margin:auto;padding:32px 22px}.top{display:flex;align-items:center;justify-content:space-between;color:#8994a8;font-size:13px}.tag{border:1px solid #303846;padding:5px 10px;border-radius:99px}h1{font-size:32px;letter-spacing:-.05em;margin:60px 0 12px}.sub{color:#9ea7b8;line-height:1.8;margin-bottom:28px}.panel{padding:24px;border:1px solid #2b3240;border-radius:28px;background:linear-gradient(150deg,#171d29,#10131a)}button{width:100%;background:#e9edf8;color:#151923;border:0;border-radius:16px;font:700 17px system-ui;padding:19px;cursor:pointer}button:disabled{opacity:.5}.hint{font-size:13px;color:#95a0b4;line-height:1.7;margin-top:15px}.status{margin:20px 0;color:#b7c3d7;font-size:15px}.dot{display:inline-block;background:#75f1ac;width:8px;height:8px;border-radius:50%;margin-right:8px;box-shadow:0 0 14px #75f1ac}.manual{margin-top:32px;border-top:1px solid #303642;padding-top:18px}input{padding:15px;width:100%;border:1px solid #434b5b;background:#0b0e16;color:#fff;font:18px system-ui;border-radius:14px;margin:10px 0}button.secondary{background:#242c39;color:#e9edf8}#reveal{display:none;position:fixed;inset:0;background:radial-gradient(ellipse at 50% 40%,#202c4b 0,#090b10 65%);align-items:center;justify-content:center;flex-direction:column}#number{font-size:clamp(150px,43vw,300px);font-weight:800;letter-spacing:-.08em;line-height:1}#reveal small{color:#aab6cb;position:absolute;bottom:10vh}#error{color:#ffaf9d;white-space:pre-wrap;font-size:14px;line-height:1.8}#heard{font-size:13px;color:#9ba7bd;min-height:20px;margin-top:12px}
 .microw{display:flex;align-items:center;gap:10px;margin:15px 0 6px;color:#aebacf;font-size:12px}.met{flex:1;height:9px;background:#30394b;border-radius:99px;overflow:hidden}.met i{display:block;height:100%;width:0;background:linear-gradient(90deg,#62d7b9,#baf28a);border-radius:99px;transition:width .1s}.speedrow{display:grid;gap:7px;margin:20px 0}.speedrow label{font-size:13px;color:#b6c1d5}select{width:100%;background:#202838;color:#f0f4ff;border:1px solid #414c60;border-radius:13px;padding:12px;font-size:15px}.note{font-size:12px;color:#9ba8ba;line-height:1.6;margin-top:6px}#diagnose{font-size:12px;color:#aab6c9;min-height:20px}
 </style>
-</head><body><main id="setup"><div class="top"><span>NUMBER MAGIC</span><span class="tag">1 — 100</span></div><h1>声だけで、<br>数字を仕込む。</h1><p class="sub">マイクの開始を押して、1〜100の数字を声に出すだけ。認識した数字を画面に固定します。</p><div class="panel"><button id="start">マイクを許可して開始</button><div id="status" class="status">待機中</div><div id="heard" aria-live="polite"></div><div class="microw"><span>マイク入力</span><div class="met"><i id="level"></i></div></div><div id="diagnose">声を出して、緑のメーターが動くか確認してね。</div><div class="speedrow"><label for="mode">反応モード</label><select id="mode"><option value="quick">高速（短い声にも反応）</option><option value="accurate">正確さ優先（誤認識を減らす）</option></select><div class="note">反応を速くする設定です。スマホ本体のマイク感度を変更するものではありません。</div></div><div id="error"></div><p class="hint">10〜30cmほどの距離で「37」のように数字をはっきり言うと認識しやすいです。初回はChromeのマイク許可を求めます。一度拒否した場合はChromeのサイト設定から許可し直してください。HTTPS環境と対応ブラウザーが必要です。</p><div class="manual"><label for="manual">音声が使えないときの予備入力</label><input id="manual" inputmode="numeric" type="number" min="1" max="100" placeholder="1〜100"><button class="secondary" id="show">数字を表示</button></div></div></main><div id="reveal"><div id="number"></div><small>画面を長押ししてリセット</small></div>
+</head><body><main id="setup"><div class="top"><span>NUMBER MAGIC</span><span class="tag">1 — 100</span></div><h1>声だけで、<br>数字を仕込む。</h1><p class="sub">マイクの開始を押して、1〜100の数字を声に出すだけ。認識した数字を画面に固定します。</p><div class="panel"><button id="start">🎤 音声認識を開始</button><button id="stop" class="secondary" style="display:none;margin-top:12px">認識を停止</button><div id="status" class="status">待機中</div><div id="heard" aria-live="polite"></div><div class="microw"><span>認識状態</span><strong id="voiceState">未開始</strong></div><div id="diagnose">開始したら「37」と話してください。音声認識の結果が下に出ます。</div><div class="speedrow"><label for="mode">反応モード</label><select id="mode"><option value="quick">高速（短い声にも反応）</option><option value="accurate">正確さ優先（誤認識を減らす）</option></select><div class="note">反応を速くする設定です。スマホ本体のマイク感度を変更するものではありません。</div></div><div id="error"></div><p class="hint">必ずAndroidのChromeアプリで開いてください。アプリ内ブラウザーでは音声認識が動かない場合があります。許可確認は音声認識の開始時に表示されます（許可済みなら再表示されません）。</p><div class="manual"><label for="manual">音声が使えないときの予備入力</label><input id="manual" inputmode="numeric" type="number" min="1" max="100" placeholder="1〜100"><button class="secondary" id="show">数字を表示</button></div></div></main><div id="reveal"><div id="number"></div><small>画面を長押ししてリセット</small></div>
 <script>
 const $=id=>document.getElementById(id);
 const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -111,61 +111,82 @@ function acceptInterim(n,transcript,id){
     if(id===sessionId&&!fixed&&active&&candidateValue===n)showNumber(n);
   },850);
 }
-$('start').onclick=async()=>{
-  if(active||fixed)return;
-  $('error').textContent='';$('heard').textContent='';$('diagnose').textContent='声を出して、緑のメーターが動くか確認してね。';
-  $('start').disabled=true;$('start').textContent='マイクを確認中…';
-  if(!window.isSecureContext){fail('HTTPSで開いてください。');return;}
-  if(!navigator.mediaDevices?.getUserMedia){fail('このブラウザーではマイクが利用できません。Chromeで開いてください。');return;}
-  if(!Recognition){fail('音声認識に非対応です。AndroidのChrome最新版をお試しください。');return;}
-  try{
-    stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
-  }catch(e){
-    const msg=e.name==='NotAllowedError'?'マイクが拒否されています。Chromeのサイト設定 → マイクで許可してください。':
-      'マイクを開けませんでした：'+e.message;
-    fail(msg);return;
-  }
-  active=true;const id=++sessionId;restartAttempts=0;
-  $('start').textContent='音声を待機中';$('status').textContent='起動中…';startMeter(stream);
-  recognition=new Recognition();recognition.lang='ja-JP';
-  recognition.continuous=false; // Some Android devices finish short utterances more reliably in single-phrase mode.
+
+function voiceState(s){$('voiceState').textContent=s;}
+$('start').onclick=()=>{
+ if(active||fixed)return;
+ $('error').textContent='';$('heard').textContent='';
+ $('diagnose').textContent='認識エンジンの起動中です。';
+ if(!window.isSecureContext){fail('HTTPSで開いてください。');voiceState('HTTPSが必要');return;}
+ if(!Recognition){fail('ブラウザーに音声認識機能がありません。Chromeアプリで開き直してください。');voiceState('非対応');return;}
+ // Speak Recognition starts in the same user gesture; avoid competing getUserMedia audio capture.
+ active=true;const id=++sessionId;restartAttempts=0;
+ recognition=null;
+ try{
+  recognition=new Recognition();
+  recognition.lang='ja-JP';
+  recognition.continuous=false;
   recognition.interimResults=true;
   recognition.maxAlternatives=3;
+  $('start').disabled=true;$('start').textContent='音声認識中…';
+  $('stop').style.display='block';
+  $('status').textContent='起動しています…';voiceState('接続中');
   recognition.onstart=()=>{
-    if(id!==sessionId)return;
-    restartAttempts=0;$('status').innerHTML='<span class="dot"></span>聞き取り中';
+   if(id!==sessionId)return;
+   restartAttempts=0;voiceState('🎤 聞き取り中');
+   $('status').textContent='数字を話してください';
+   $('diagnose').textContent='「37」と言うと、下に認識した文字が表示されます。';
   };
-  recognition.onspeechstart=()=>{if(id===sessionId)$('status').textContent='声を検知しました…';};
-  recognition.onresult=(e)=>{
-    if(id!==sessionId||!active)return;
-    for(let i=e.resultIndex;i<e.results.length;i++){
-      const result=e.results[i],transcript=result[0]?.transcript||'';
-      $('heard').textContent='認識：'+transcript+(result.isFinal?'':'（途中）');
-      let n=null;
-      for(let j=0;j<result.length;j++){n=parseNumber(result[j].transcript);if(n!==null)break;}
-      if(result.isFinal){
-        clearCandidate();
-        if(n!==null){showNumber(n);return;}
-        $('diagnose').textContent='声は届いています。数字を短くはっきり言ってください。';
-      }else{
-        acceptInterim(n,transcript,id);
-      }
+  recognition.onspeechstart=()=>{
+   if(id!==sessionId)return;
+   voiceState('音声を検知');$('status').textContent='声を聞いています…';
+  };
+  recognition.onresult=e=>{
+   if(id!==sessionId||fixed||!active)return;
+   for(let i=e.resultIndex;i<e.results.length;i++){
+    const result=e.results[i],transcript=result[0]?.transcript||'';
+    $('heard').textContent='聞き取った内容：'+transcript+(result.isFinal?'（確定）':'（途中）');
+    let n=null;
+    for(let j=0;j<result.length;j++){
+     n=parseNumber(result[j].transcript);
+     if(n!==null)break;
     }
+    if(result.isFinal){
+     clearCandidate();
+     if(n!==null){showNumber(n);return;}
+     $('diagnose').textContent='声は認識できましたが、数字を読み取れませんでした。数字だけもう一度言ってください。';
+     voiceState('再試行');
+    }else acceptInterim(n,transcript,id);
+   }
   };
-  recognition.onerror=(e)=>{
-    if(id!==sessionId||fixed||!active)return;
-    if(['not-allowed','service-not-allowed','audio-capture'].includes(e.error)){
-      fail('音声認識が使えません（'+e.error+'）。Chromeのマイク許可を確認してください。');
-    }else if(e.error==='network'){
-      fail('音声認識サービスに接続できません。通信環境を確認してください。');
-    }else if(e.error==='no-speech'){
-      $('diagnose').textContent='声を検出できませんでした。近づいてもう一度話してください。';
-    }else{
-      $('diagnose').textContent='認識を再試行中です（'+e.error+'）。';
-    }
+  recognition.onerror=e=>{
+   if(id!==sessionId||fixed||!active)return;
+   if(e.error==='not-allowed'||e.error==='service-not-allowed'){
+    fail('音声認識が拒否されました。Chromeのサイト設定でマイクを許可してください。');voiceState('権限エラー');
+   }else if(e.error==='audio-capture'){
+    fail('マイクを使えません。通話・録音アプリを終了してChromeで再試行してください。');voiceState('マイクエラー');
+   }else if(e.error==='network'){
+    fail('音声認識サービスに接続できません。通信環境を確認してください。');voiceState('通信エラー');
+   }else{
+    $('diagnose').textContent='音声認識の状態：'+e.error+'。自動で再試行します。';
+    voiceState('再試行');
+   }
   };
-  recognition.onend=()=>{if(id===sessionId&&active&&!fixed)scheduleRestart(id);};
-  listen(id);
+  recognition.onend=()=>{
+   if(id!==sessionId||fixed||!active)return;
+   $('status').textContent='再接続中…';voiceState('再接続中');
+   scheduleRestart(id);
+  };
+  recognition.start();
+ }catch(e){
+  fail('認識を起動できません：'+(e.message||String(e)));voiceState('起動失敗');
+ }
+};
+$('stop').onclick=()=>{
+ active=false;sessionId++;clearTimeout(restartTimer);clearCandidate();
+ try{recognition?.abort()}catch(e){}
+ $('stop').style.display='none';$('start').disabled=false;
+ $('start').textContent='🎤 音声認識を開始';$('status').textContent='停止中';voiceState('停止中');
 };
 $('show').onclick=()=>{
   const raw=$('manual').value.trim(),n=Number(raw);
