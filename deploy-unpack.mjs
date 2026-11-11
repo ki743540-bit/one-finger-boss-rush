@@ -30,3 +30,5 @@ writeFileSync(clientPath,clientSource.replace(oldMessage,newMessage));
 console.log('Game Forge assets verified and restored:',count,'with Hugging Face adapter');
 
 await import('./game-qa-v2-build.mjs');
+
+await import('./game-team-v3-build.mjs');
