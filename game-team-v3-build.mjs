@@ -13,3 +13,22 @@ for(const [file,content] of Object.entries(files)){
  writeFileSync(dest,content);
 }
 console.log('Game Forge multi-worker QA v3 installed:',allowed.size,'source files');
+
+const clientFile=join('game-forge-studio','public','app.js');
+let client=readFileSync(clientFile,'utf8');
+const oldHero="document.querySelector('.hero-copy p')";
+if(!client.includes(oldHero))throw new Error('Team mode hero patch marker missing');
+client=client.replace(oldHero,"document.querySelector('.hero-sub')");
+const oldDetail="renderLogs(p);\n const working=";
+if(!client.includes(oldDetail))throw new Error('Team QA detail patch marker missing');
+client=client.replace(oldDetail,"renderLogs(p);updateQualityReport(p);\n const working=");
+client+=`
+function updateQualityReport(p){
+ const parent=document.querySelector('#detail-step');if(!parent)return;
+ let node=document.querySelector('#qa-report');
+ if(!node){node=document.createElement('p');node.id='qa-report';node.className='muted';node.style.cssText='font-size:12px;line-height:1.6;margin:6px 0 0';parent.insertAdjacentElement('afterend',node);}
+ const q=p.quality;
+ node.textContent=q?('AI制作チーム：'+q.passes+'回の制作・修正 / 配置・物理AIレビュー完了 / 実際のプレイ検査は未実施'):(['thinking','checking','repairing'].includes(p.status)?'AI制作チームが作業中':'');
+}
+`;
+writeFileSync(clientFile,client);
