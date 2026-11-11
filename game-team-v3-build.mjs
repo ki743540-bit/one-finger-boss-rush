@@ -17,12 +17,14 @@ console.log('Game Forge multi-worker QA v3 installed:',allowed.size,'source file
 const clientFile=join('game-forge-studio','public','app.js');
 let client=readFileSync(clientFile,'utf8');
 const oldHero="document.querySelector('.hero-copy p')";
-if(!client.includes(oldHero))throw new Error('Team mode hero patch marker missing');
-client=client.replace(oldHero,"document.querySelector('.hero-sub')");
+const newHero="document.querySelector('.hero-sub')";
+if(client.includes(oldHero))client=client.replace(oldHero,newHero);
+else if(!client.includes(newHero))throw new Error('Team mode hero patch marker missing');
 const oldDetail="renderLogs(p);\n const working=";
-if(!client.includes(oldDetail))throw new Error('Team QA detail patch marker missing');
-client=client.replace(oldDetail,"renderLogs(p);updateQualityReport(p);\n const working=");
-client+=`
+const newDetail="renderLogs(p);updateQualityReport(p);\n const working=";
+if(client.includes(oldDetail))client=client.replace(oldDetail,newDetail);
+else if(!client.includes('renderLogs(p);updateQualityReport(p);'))throw new Error('Team QA detail patch marker missing');
+if(!client.includes('function updateQualityReport(p)'))client+=`
 function updateQualityReport(p){
  const parent=document.querySelector('#detail-step');if(!parent)return;
  let node=document.querySelector('#qa-report');
