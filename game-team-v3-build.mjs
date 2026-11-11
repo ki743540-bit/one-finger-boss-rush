@@ -34,4 +34,6 @@ function updateQualityReport(p){
 }
 `;
 writeFileSync(clientFile,client);
-await import('./visual-team-inspect.mjs');
+const {installVisualUpgrade}=await import('./visual-v5.mjs');
+installVisualUpgrade('game-forge-studio');
+console.log('Game Forge visual director v5: scene art, UI, physical review instructions installed');
