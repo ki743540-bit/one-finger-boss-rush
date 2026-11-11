@@ -15,6 +15,12 @@ for (const [file, value] of Object.entries(files)) {
 const aiSource=readFileSync(new URL('./free-tier-ai.mjs',import.meta.url),'utf8');
 if(!aiSource.includes('Hugging Face')||!aiSource.includes('HF_TOKEN'))throw new Error('Free-tier AI module missing');
 writeFileSync(join('game-forge-studio','lib','ai.mjs'),aiSource);
+const serverPath=join('game-forge-studio','server.mjs');
+const serverSource=readFileSync(serverPath,'utf8');
+const oldCall='await generateGame(instruction,{previous:previousDraft,feedback})';
+const newCall="await generateGame(instruction,{previous:previousDraft,feedback,onProgress:(message)=>log(p,'thinking',message)})";
+if(!serverSource.includes(oldCall))throw new Error('Server AI call patch target missing');
+writeFileSync(serverPath,serverSource.replace(oldCall,newCall));
 const clientPath=join('game-forge-studio','public','app.js');
 const clientSource=readFileSync(clientPath,'utf8');
 const oldMessage='AI未接続：生成にはサーバー側のAPIキー設定が必要です。';
