@@ -12,4 +12,13 @@ for (const [file, value] of Object.entries(files)) {
   writeFileSync(target, typeof value === 'string' ? value : Buffer.from(value.base64, 'base64'));
   count++;
 }
-console.log('Game Forge assets verified and restored:', count);
+const aiSource=readFileSync(new URL('./free-tier-ai.mjs',import.meta.url),'utf8');
+if(!aiSource.includes('Hugging Face')||!aiSource.includes('HF_TOKEN'))throw new Error('Free-tier AI module missing');
+writeFileSync(join('game-forge-studio','lib','ai.mjs'),aiSource);
+const clientPath=join('game-forge-studio','public','app.js');
+const clientSource=readFileSync(clientPath,'utf8');
+const oldMessage='AI未接続：生成にはサーバー側のAPIキー設定が必要です。';
+const newMessage='AI未接続：無料枠のHugging Faceを利用するには、サーバー側でHF_TOKENを設定してください。';
+if(!clientSource.includes(oldMessage))throw new Error('Client configuration message missing');
+writeFileSync(clientPath,clientSource.replace(oldMessage,newMessage));
+console.log('Game Forge assets verified and restored:',count,'with Hugging Face adapter');
