@@ -34,3 +34,4 @@ function updateQualityReport(p){
 }
 `;
 writeFileSync(clientFile,client);
+await import('./visual-team-inspect.mjs');
