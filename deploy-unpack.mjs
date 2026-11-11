@@ -28,3 +28,5 @@ const newMessage='AI未接続：無料枠のHugging Faceを利用するには、
 if(!clientSource.includes(oldMessage))throw new Error('Client configuration message missing');
 writeFileSync(clientPath,clientSource.replace(oldMessage,newMessage));
 console.log('Game Forge assets verified and restored:',count,'with Hugging Face adapter');
+
+await import('./game-qa-v2-build.mjs');
