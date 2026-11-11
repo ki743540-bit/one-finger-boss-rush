@@ -19,13 +19,22 @@ function errorResponse(status,body){
  throw new Error(`AIサービスに接続できませんでした (${status}): ${safe}`);
 }
 
-export async function generateGame(prompt,{previous='',feedback=''}={}){
+const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+async function oneRequest(url,headers,body){
+ const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),115000);
+ try{
+  const response=await fetch(url,{method:'POST',headers,body:JSON.stringify(body),signal:controller.signal});
+  const payload=await response.json().catch(()=>({}));
+  return {response,payload};
+ }catch(err){if(err.name==='AbortError')throw new Error('AIの応答が制限時間を超えました。');throw err;}
+ finally{clearTimeout(timeout);}
+}
+
+export async function generateGame(prompt,{previous='',feedback='',onProgress=()=>{}}={}){
  const config=providerConfig();if(!config)throw new Error('AIの接続設定がありません。HF_TOKEN、GEMINI_API_KEY または OPENAI_API_KEY をサーバー環境変数に設定してください。');
  const instructions=await readFile(promptUrl,'utf8');
  const input=previous?`以下の既存ゲームを改善してください。変更指示:\n${prompt}\n${feedback?`直すべきエラー: ${feedback}\n`:''}\n既存HTML:\n${previous}`:`以下の指示で新しいゲームを制作してください。\n${prompt}${feedback?`\n前回の生成エラーを解消してください: ${feedback}`:''}`;
- const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),115000);
- try{
-  let url, headers, body;
+ let url,headers,body;
   if(config.provider==='Hugging Face'){
    url='https://router.huggingface.co/v1/chat/completions';
    headers={'content-type':'application/json','authorization':`Bearer ${process.env.HF_TOKEN}`};
@@ -39,11 +48,27 @@ export async function generateGame(prompt,{previous='',feedback=''}={}){
    headers={'content-type':'application/json','authorization':`Bearer ${process.env.OPENAI_API_KEY}`};
    body={model:config.model,instructions,input,max_output_tokens:18000,store:false};
   }
-  const response=await fetch(url,{method:'POST',headers,body:JSON.stringify(body),signal:controller.signal});
-  const payload=await response.json().catch(()=>({}));
-  if(!response.ok)errorResponse(response.status,payload);
+  const models=config.provider==='Gemini'
+   ?[config.model,config.model,...(config.model==='gemini-3.5-flash'?[]:['gemini-3.5-flash'])]
+   :[config.model];
+  let payload;
+  for(let i=0;i<models.length;i++){
+   if(i>0){
+    const switching=models[i]!==models[i-1];
+    onProgress(switching?'Geminiが混雑しているため、別の無料モデルへ切り替えています。':'Geminiが混雑しているため、少し待って自動再試行しています。');
+    await pause(Math.min(5000,750*2**(i-1)));
+   }
+   const attemptUrl=config.provider==='Gemini'?`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(models[i])}:generateContent`:url;
+   const result=await oneRequest(attemptUrl,headers,body);
+   payload=result.payload;
+   if(result.response.ok)break;
+   if(config.provider==='Gemini'&&result.response.status===503){
+    if(i<models.length-1)continue;
+    throw new Error('Geminiのサーバーが混雑しています（503）。無料モデルでも自動再試行しましたが応答できませんでした。少し時間をおいて再度お試しください。');
+   }
+   errorResponse(result.response.status,payload);
+  }
   const output=config.provider==='Gemini'?(payload.candidates||[]).flatMap(c=>(c.content?.parts||[]).map(p=>p.text||'')).join('\n'):config.provider==='Hugging Face'?(payload.choices||[]).map(c=>c.message?.content||'').join('\n'):extractOpenAI(payload);
   if(!output.trim())throw new Error('AIからゲームのソースコードが返ってきませんでした。');
   return output;
- }catch(err){if(err.name==='AbortError')throw new Error('AIの応答が制限時間を超えました。');throw err;}finally{clearTimeout(timeout);}
 }
