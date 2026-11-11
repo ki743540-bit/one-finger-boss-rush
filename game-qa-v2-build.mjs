@@ -1,0 +1,36 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+const repoRoot=path.dirname(fileURLToPath(import.meta.url));
+const root=path.join(repoRoot,'game-forge-studio');
+const read=(f)=>fs.readFileSync(path.join(root,f),'utf8');
+const write=(f,s)=>fs.writeFileSync(path.join(root,f),s);
+const external=(f)=>fs.readFileSync(path.join(repoRoot,f),'utf8');
+function replaceOne(s,oldText,newText,label){
+ const count=s.split(oldText).length-1;
+ if(count!==1)throw new Error('QA upgrade patch mismatch '+label+' ('+count+')');
+ return s.replace(oldText,newText);
+}
+const systemPrompt=external('game-qa-v2-prompt.md');
+const audit=external('game-qa-v2-audit.mjs');
+const preview=external('game-qa-v2-preview.js');
+if(!systemPrompt.includes('開始 → プレイ → 結果 → 再挑戦')||!audit.includes('auditGameQuality')||!preview.includes('preview-runtime-error'))throw new Error('QA assets not complete');
+write('prompts/game-developer.md',systemPrompt);
+write('lib/audit.mjs',audit);
+let server=read('server.mjs');
+server=replaceOne(server,"import {createZip} from './lib/zip.mjs';","import {createZip} from './lib/zip.mjs';\nimport {auditGameQuality} from './lib/audit.mjs';",'audit import');
+server=replaceOne(server,'const errors=validateGameHtml(code);','const errors=[...validateGameHtml(code),...auditGameQuality(code)];','quality gate');
+server=replaceOne(server,'構文検証を通過しました。ブラウザでの実機テストは未実施です。','構文と基本操作・描画の静的検査を通過。実際の操作はプレビューで確認してください。','quality note');
+server=replaceOne(server,"verification:'JavaScript構文検証（ブラウザ実機テストは未対応）'","verification:'構文・操作入力・Canvas描画の静的検査（プレビューで実行時警告。ブラウザ自動プレイ検証は未対応）'",'QA status');
+write('server.mjs',server);
+let js=read('public/app.js');
+const begin=js.indexOf('function createFrame(html){'),end=js.indexOf('async function loadPreview(',begin);
+if(begin<0||end<0||begin>=end)throw new Error('QA preview patch markers absent');
+js=js.slice(0,begin)+preview+js.slice(end);
+js=replaceOne(js,"wrap.replaceChildren();const loading=document.createElement('div');","wrap.replaceChildren();$('#preview-runtime-warning')?.remove();const loading=document.createElement('div');",'preview reset');
+js=replaceOne(js,"function emptyPreview(message){const wrap=$('#preview-wrap');wrap.replaceChildren();","function emptyPreview(message){const wrap=$('#preview-wrap');wrap.replaceChildren();$('#preview-runtime-warning')?.remove();",'empty reset');
+write('public/app.js',js);
+let css=read('public/app.css');
+css+='\n/* The preview must show start controls on touch phones; warn on detected runtime problems. */\n.preview-runtime-warning{border:1px solid rgba(255,141,153,.55);background:rgba(245,107,123,.1);border-radius:12px;padding:12px 14px;color:var(--danger);font-size:13px;line-height:1.6;margin:10px 0 0;overflow-wrap:anywhere}\n@media(max-width:590px){.preview-wrap{aspect-ratio:9/15;min-height:480px;max-height:74svh}.preview-wrap iframe{display:block;width:100%;height:100%}}\n';
+write('public/app.css',css);
+console.log('Game Forge QA v2 installed: strict prompt, static gate, runtime warnings, larger mobile preview');
