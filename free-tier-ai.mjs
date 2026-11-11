@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 const promptUrl=new URL('../prompts/game-developer.md',import.meta.url);
 export function providerConfig(){
  if(process.env.HF_TOKEN) return {provider:'Hugging Face',model:process.env.HF_MODEL||'Qwen/Qwen3-Coder-480B-A35B-Instruct:cheapest'};
- if(process.env.GEMINI_API_KEY) return {provider:'Gemini',model:process.env.GEMINI_MODEL||'gemini-3.8-flash'};
+ if(process.env.GEMINI_API_KEY) return {provider:'Gemini',model:process.env.GEMINI_MODEL||'gemini-3.6-flash'};
  if(process.env.OPENAI_API_KEY) return {provider:'OpenAI',model:process.env.OPENAI_MODEL||'gpt-5.5'};
  return null;
 }
@@ -33,7 +33,7 @@ export async function generateGame(prompt,{previous='',feedback=''}={}){
   } else if(config.provider==='Gemini'){
    url=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(config.model)}:generateContent`;
    headers={'content-type':'application/json','x-goog-api-key':process.env.GEMINI_API_KEY};
-   body={systemInstruction:{parts:[{text:instructions}]},contents:[{role:'user',parts:[{text:input}]}],generationConfig:{temperature:0.65,maxOutputTokens:18000}};
+   body={systemInstruction:{parts:[{text:instructions}]},contents:[{role:'user',parts:[{text:input}]}],generationConfig:{maxOutputTokens:12000,thinkingConfig:{thinkingLevel:'LOW'}}};
   } else {
    url='https://api.openai.com/v1/responses';
    headers={'content-type':'application/json','authorization':`Bearer ${process.env.OPENAI_API_KEY}`};
