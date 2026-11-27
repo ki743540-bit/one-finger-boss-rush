@@ -1,8 +1,9 @@
-"""Frame web engine with optional API acquisition and lossless MP4 repackaging."""
+"""Frame web engine with free acquisition and lossless MP4 repackaging."""
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
-from urllib.parse import urlparse, parse_qs, urlencode, urljoin
-from urllib.request import Request, build_opener, HTTPRedirectHandler
+from urllib.parse import urlparse, parse_qs, urljoin
+from urllib.request import Request, build_opener, HTTPRedirectHandler, HTTPCookieProcessor
+from http.cookiejar import CookieJar
 from urllib.error import HTTPError
 import json, threading, uuid, re, shutil, mimetypes, time, webbrowser, os, subprocess
 
@@ -15,14 +16,13 @@ ACTIVE = threading.Semaphore(1)
 PORT = int(os.environ.get('PORT', '8765'))
 PUBLIC_ORIGIN = os.environ.get('FRAME_PUBLIC_ORIGIN', os.environ.get('RENDER_EXTERNAL_URL', '')).rstrip('/')
 MAX_UPLOAD = 128 * 1024 * 1024
-PROVIDER_BASE = 'https://p.savenow.to'
-PROVIDER_DOMAIN = 'savenow.to'
+PROVIDER_BASE = 'https://save.brianrianrehan.com'
+PROVIDER_DOMAIN = 'save.brianrianrehan.com'
 PROVIDER_POLL_SECONDS = 3
 
 def auto_editor_available():
-    return (os.environ.get('FRAME_AUTO_EDIT') == '1'
-            and bool(os.environ.get('VDA_API_KEY', '').strip())
-            and bool(shutil.which('ffmpeg')) and bool(shutil.which('ffprobe')))
+    # Free public API; no key, account, paid balance, or opt-in flag required.
+    return bool(shutil.which('ffmpeg')) and bool(shutil.which('ffprobe'))
 
 def provider_url(raw):
     # Only provider-owned HTTPS endpoints may be fetched, including redirects.
@@ -30,7 +30,7 @@ def provider_url(raw):
     base = urlparse(PROVIDER_BASE)
     host = u.hostname or ''
     if (u.scheme != base.scheme or u.username or u.password or u.fragment
-            or not (host == PROVIDER_DOMAIN or host.endswith('.' + PROVIDER_DOMAIN))
+            or host != PROVIDER_DOMAIN
             or u.port not in (None, base.port or 443)
             or not u.path.startswith(('/api/', '/ajax/'))):
         raise ValueError('取得サービスから不正な保存先が返されました。')
@@ -40,23 +40,32 @@ class NoProviderRedirect(HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
 
-def open_provider(raw):
-    opener = build_opener(NoProviderRedirect())
+def open_provider(raw, data=None, opener=None):
+    opener = opener or build_opener(NoProviderRedirect(), HTTPCookieProcessor(CookieJar()))
     for _ in range(4):
         raw = provider_url(raw)
         try:
-            return opener.open(Request(raw, headers={'User-Agent': 'Frame/1.0', 'Accept': '*/*'}), timeout=35)
+            headers = {'User-Agent': 'Frame/1.0 (+https://frame-video-aki.onrender.com)', 'Accept': '*/*'}
+            if data is not None:
+                headers['Content-Type'] = 'application/json'
+            return opener.open(Request(raw, data=data, headers=headers), timeout=35)
         except HTTPError as exc:
             if exc.code in (301, 302, 303, 307, 308) and exc.headers.get('Location'):
                 raw = urljoin(raw, exc.headers['Location'])
+                if exc.code == 303:
+                    data = None
                 exc.close()
                 continue
+            code = exc.code
             exc.close()
-            raise ValueError('取得サービスに接続できませんでした。API設定・残高・動画の公開状態を確認してください。') from None
+            if code == 429:
+                raise ValueError('無料の取得サービスが利用制限中です。時間をおいてお試しください。') from None
+            raise ValueError('無料の取得サービスに接続できませんでした。時間をおいてお試しください。') from None
     raise ValueError('取得サービスの保存先を確認できませんでした。')
 
-def provider_json(raw):
-    with open_provider(raw) as response:
+def provider_json(raw, payload=None, opener=None):
+    encoded = json.dumps(payload).encode() if payload is not None else None
+    with open_provider(raw, data=encoded, opener=opener) as response:
         data = response.read(128 * 1024 + 1)
     if len(data) > 128 * 1024:
         raise ValueError('取得サービスからの応答を確認できませんでした。')
@@ -71,28 +80,43 @@ def auto_editor_download(ident, url, quality):
     try:
         folder.mkdir()
         patch(ident, message='動画を取得しています…')
-        params = urlencode({'url': url, 'format': '4k' if quality == '2160' else quality,
-                            'apikey': os.environ['VDA_API_KEY']})
-        # Submit once. Retrying a start request could create a second chargeable job.
-        job = provider_json(PROVIDER_BASE + '/api/v2/download?' + params)
-        if job.get('success') not in (True, 1) or not job.get('id') or not job.get('progress_url'):
-            raise ValueError('動画の取得を開始できませんでした。API設定と残高を確認してください。')
-        progress_url = provider_url(job['progress_url'])
+        opener = build_opener(NoProviderRedirect(), HTTPCookieProcessor(CookieJar()))
         deadline = time.monotonic() + 300
+        # Start once, then poll the existing job. Never evade rate limits or
+        # create duplicate downloads when processing is slow.
+        reply = provider_json(PROVIDER_BASE + '/api/v1/download?wait=false',
+            {'url': url, 'format': 'video', 'quality': quality + 'p', 'outputFormat': 'mp4'}, opener)
+        if reply.get('success') is not True or not isinstance(reply.get('data'), dict):
+            raise ValueError('無料サービスで動画の取得を開始できませんでした。時間をおいてお試しください。')
+        state = reply['data']
+        remote_id = state.get('downloadId')
+        if not isinstance(remote_id, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,100}', remote_id):
+            raise ValueError('取得サービスの応答を確認できませんでした。')
+        progress_url = provider_url(urljoin(PROVIDER_BASE,
+            state.get('statusUrl') or '/api/v1/download/' + remote_id))
         while True:
-            state = provider_json(progress_url)
-            progress = float(state.get('progress', 0))
-            if progress >= 1000:
-                if state.get('success') not in (True, 1) or not state.get('download_url'):
-                    raise ValueError('動画を取得できませんでした。動画の公開状態と取得サービスの状況を確認してください。')
-                media_url = provider_url(state['download_url'])
+            status = state.get('status')
+            if status == 'completed':
+                if not state.get('downloadUrl'):
+                    raise ValueError('完成した動画の保存先が見つかりませんでした。')
+                media_url = provider_url(urljoin(PROVIDER_BASE, state['downloadUrl']))
                 break
+            if status == 'failed':
+                raise ValueError('無料サービスで動画を取得できませんでした。動画の公開状態を確認してください。')
+            if status not in ('pending', 'processing', 'downloading', 'converting'):
+                raise ValueError('取得サービスの進捗を確認できませんでした。')
             if time.monotonic() >= deadline:
                 raise ValueError('動画の取得がタイムアウトしました。時間をおいてお試しください。')
-            patch(ident, percent=min(75, max(0, progress * .075)), message='動画を取得しています…')
+            value = state.get('progress')
+            percent = min(75, max(0, float(value) * .75)) if isinstance(value, (int, float)) else None
+            patch(ident, percent=percent, message='無料サービスで動画を取得しています…')
             time.sleep(PROVIDER_POLL_SECONDS)
+            reply = provider_json(progress_url, opener=opener)
+            if reply.get('success') is not True or not isinstance(reply.get('data'), dict):
+                raise ValueError('取得サービスの進捗を確認できませんでした。')
+            state = reply['data']
         patch(ident, percent=None, message='取得した動画を編集用に準備しています…')
-        with open_provider(media_url) as response, (folder / 'source.mp4').open('wb') as output:
+        with open_provider(media_url, opener=opener) as response, (folder / 'source.mp4').open('wb') as output:
             length = response.headers.get('Content-Length')
             if length and int(length) > MAX_UPLOAD:
                 raise ValueError('編集用の自動保存は128MB以内の動画に対応しています。画質を下げてお試しください。')
@@ -301,7 +325,7 @@ class Handler(BaseHTTPRequestHandler):
                 if quality not in ('480', '720', '1080', '2160'):
                     raise ValueError('画質を確認してください。')
                 if not auto_editor_available():
-                    return self.reply(503, {'error': '編集用MP4の自動保存には、取得サービスのAPI設定が必要です。通常保存とMP4の読み込み対策は利用できます。'})
+                    return self.reply(503, {'error': '編集用MP4の処理を準備できませんでした。時間をおいてお試しください。'})
                 if not ACTIVE.acquire(blocking=False):
                     return self.reply(409, {'error': 'ほかの処理が進行中です。完了してから再度お試しください。'})
                 cleanup_jobs()
