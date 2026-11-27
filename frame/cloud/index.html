@@ -8,7 +8,7 @@
 <section class="workspace" aria-label="動画を保存"><form id="form"><div class="labelrow"><label for="url">YouTubeのリンク</label><span class="badge"><span class="dot" id="dot"></span><span id="engine">ログイン不要</span></span></div><div class="inputrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="m10 13 4-4m-6 6-2 2a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m4 2 2-2a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0" transform="translate(1 0) scale(.9)"/></svg><input id="url" type="url" placeholder="https://www.youtube.com/watch?v=…" autocomplete="off" required aria-describedby="hint status"><button type="button" class="paste" id="paste">貼り付け</button></div><p class="hint" id="hint">通常の動画・Shortsのリンクに対応</p>
 <div id="preview" class="preview reveal" hidden><img id="thumb" alt="動画のサムネイル" referrerpolicy="no-referrer"><div><h2 id="videoTitle">リンクを読み込みました</h2><p id="videoMeta">形式を選んで保存できます</p></div></div>
 <div class="options"><div><span class="fieldlabel">保存形式</span><div class="segments" role="group" aria-label="保存形式"><button type="button" aria-pressed="true" data-kind="video">動画 <small>MP4</small></button><button type="button" aria-pressed="false" data-kind="audio">音声 <small>MP3</small></button></div></div><div><label for="quality">画質</label><select id="quality"><option value="1080">1080p · フルHD</option><option value="720">720p · HD</option><option value="480">480p · 軽いファイル</option><option value="2160">4K · 高画質</option></select></div></div>
-<button class="primary" id="submit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></svg><span id="submitText">保存ボタンを表示</span></button><p class="below" id="below">リンクは外部のVideo Download APIへ送信して処理します。</p><p class="status" id="status" role="status" aria-live="polite"></p><progress id="progress" max="100" hidden aria-label="ダウンロード進捗"></progress></form><section id="providerPanel" class="provider-panel reveal" aria-label="ファイルの取得" hidden><h2>ファイルを取得</h2><p id="providerHint" role="status" aria-live="polite"></p><div id="providerFrame"></div><p class="provider-credit">取得・変換はVideo Download APIが提供します。</p></section></section>
+<button class="primary" id="submit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></svg><span id="submitText">保存ボタンを表示</span></button><p class="below" id="below">リンクは外部のVideo Download APIへ送信して処理します。</p><p class="status" id="status" role="status" aria-live="polite"></p><progress id="progress" max="100" hidden aria-label="ダウンロード進捗"></progress></form><a id="mainDownload" class="primary downloadlink" download="Frame-edit.mp4" hidden>編集用MP4を保存</a><section id="providerPanel" class="provider-panel reveal" aria-label="ファイルの取得" hidden><h2>ファイルを取得</h2><p id="providerHint" role="status" aria-live="polite"></p><div id="providerFrame"></div><p class="provider-credit">取得・変換はVideo Download APIが提供します。</p></section></section>
 
 <section class="workspace editor-panel" aria-labelledby="editorTitle">
 <h2 id="editorTitle">MP4が読み込めないとき</h2>
@@ -35,21 +35,28 @@ function showPreview(v){$('#thumb').hidden=false;$('#thumb').onerror=()=>{$('#th
 $('#url').onchange=()=>{video=null;try{showPreview(parseURL($('#url').value));message('')}catch{$('#preview').hidden=true}};
 for(const b of document.querySelectorAll('[data-kind]'))b.onclick=()=>{if(busy)return;kind=b.dataset.kind;document.querySelectorAll('[data-kind]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));$('#quality').disabled=kind==='audio';$('#quality').setAttribute('aria-label',kind==='audio'?'MP3音声':'画質');$('#below').textContent=kind==='audio'?'MP3音声として取得します。音質は提供元の形式により変わります。':local?'選択画質以下で最適な形式を取得します。':'リンクは外部のVideo Download APIへ送信して処理します。'};
 async function api(path,body){const r=await fetch(path,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});const j=await r.json();if(!r.ok)throw Error(j.error||'処理に失敗しました。');return j}
-function setBusy(on){busy=on;$('#submit').disabled=on;$('#url').disabled=on;$('#paste').disabled=on;document.querySelectorAll('[data-kind]').forEach(b=>b.disabled=on);$('#quality').disabled=on||kind==='audio';$('#submitText').textContent=on?'処理しています…':local?'ダウンロード':'ダウンロード'}
+let autoEditorReady=false;
+function saveButtonText(){return kind==='video'&&autoEditorReady?'編集用MP4をダウンロード':'保存ボタンを表示'}
+const capabilities=fetch('/api/health',{signal:AbortSignal.timeout(20000)}).then(r=>{if(!r.ok)throw Error();return r.json()}).then(r=>{autoEditorReady=r.auto_editor===true;if(!busy)$('#submitText').textContent=saveButtonText();return autoEditorReady}).catch(()=>false);
+function setBusy(on){busy=on;$('#submit').disabled=on;$('#url').disabled=on;$('#paste').disabled=on;document.querySelectorAll('[data-kind]').forEach(b=>b.disabled=on);$('#quality').disabled=on||kind==='audio';$('#submitText').textContent=on?'処理しています…':saveButtonText()}
 function historyAdd(title){try{const rows=JSON.parse(localStorage.getItem('frame-history')||'[]');rows.unshift({title,date:new Date().toLocaleDateString('ja-JP')});localStorage.setItem('frame-history',JSON.stringify(rows.slice(0,5)));renderHistory()}catch{}}
 function renderHistory(){try{const rows=JSON.parse(localStorage.getItem('frame-history')||'[]');$('#history').replaceChildren();for(const row of rows){const d=document.createElement('div');d.className='historyrow';for(const t of [row.title,row.date]){const s=document.createElement('span');s.textContent=t;d.append(s)}$('#history').append(d)}$('#activity').hidden=!rows.length}catch{}}
 function clearProvider(){
   $('#providerFrame').replaceChildren();$('#providerPanel').hidden=true;
-  $('#submitText').textContent='保存ボタンを表示';
+  $('#mainDownload').hidden=true;$('#mainDownload').removeAttribute('href');$('#progress').hidden=true;
+  $('#submitText').textContent=saveButtonText();
 }
 $('#url').addEventListener('input',clearProvider);
 $('#url').addEventListener('change',clearProvider);
 $('#quality').addEventListener('change',clearProvider);
-for(const button of document.querySelectorAll('[data-kind]'))button.addEventListener('click',()=>{clearProvider();$('#below').textContent='リンクは外部のVideo Download APIへ送信して処理します。'});
-$('#form').onsubmit=e=>{
-  e.preventDefault();let video;
+for(const button of document.querySelectorAll('[data-kind]'))button.addEventListener('click',()=>{clearProvider();$('#below').textContent=kind==='video'&&autoEditorReady?'動画は取得後に編集用MP4へ自動で整えます。最大128MB・10分。':'リンクは外部のVideo Download APIへ送信して処理します。'});
+$('#form').onsubmit=async e=>{
+  e.preventDefault();if(busy)return;let video;
   try{video=parseURL($('#url').value)}catch(err){message(err.message,true);return}
   clearProvider();showPreview(video);message('');
+  setBusy(true);const available=await capabilities;
+  if(kind==='video'&&available){await saveEditableVideo(video);return}
+  setBusy(false);
   const format=kind==='audio'?'mp3':$('#quality').value==='2160'?'4k':$('#quality').value;
   const link=new URL('https://p.savenow.to/api/button/');
   link.searchParams.set('url',video.url);link.searchParams.set('f',format);link.searchParams.set('color','#0768ed');
@@ -63,9 +70,33 @@ $('#form').onsubmit=e=>{
   $('#submitText').textContent='保存ボタンを更新';
   $('#providerPanel').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'nearest'});
 };
+async function saveEditableVideo(video){
+  const progress=$('#progress');progress.hidden=false;progress.removeAttribute('value');
+  message('動画を取得して、編集用MP4に整えます…');
+  try{
+    const job=await api('/api/auto-editor',{url:video.url,quality:$('#quality').value});
+    const deadline=Date.now()+480000;
+    while(true){
+      const r=await fetch('/api/jobs/'+job.id,{signal:AbortSignal.timeout(30000)});
+      const state=await r.json();if(!r.ok)throw Error(state.error||'処理を確認できませんでした。');
+      if(state.state==='error')throw Error(state.error||'取得できませんでした。');
+      if(state.state==='done'){
+        progress.value=100;const link=$('#mainDownload');link.href='/api/files/'+job.id;link.hidden=false;
+        message('編集用MP4を準備しました。映像・音声・fpsはそのままです。保存が始まらない場合は下のボタンを押してください。');
+        link.click();return;
+      }
+      if(Date.now()>deadline)throw Error('処理に時間がかかっています。時間をおいて再度お試しください。');
+      if(typeof state.percent==='number')progress.value=state.percent;else progress.removeAttribute('value');
+      message(state.message||'編集用MP4を準備しています…');
+      await new Promise(resolve=>setTimeout(resolve,1500));
+    }
+  }catch(err){message(err.name==='TimeoutError'?'処理の確認がタイムアウトしました。接続を確認してください。':err.message,true);progress.hidden=true}
+  finally{setBusy(false)}
+}
 $('#setup h2').textContent='Frameの使い方';
 $('#setup p').textContent='PCの起動やGoogleログインは不要です。取得処理には外部サービスを利用します。';
 $('#setup ol').innerHTML='<li>YouTubeの動画URLを貼り付けます。</li><li>MP4動画またはMP3音声と、画質を選びます。</li><li>「保存ボタンを表示」を押します。</li><li>表示された「Download」を押して取得を開始します。</li><li>完了後に「Download Now!」を押すと保存できます。</li>';
+capabilities.then(ready=>{if(ready){$('#setup ol').innerHTML='<li>YouTubeの動画URLを貼り付けます。</li><li>MP4動画と画質を選びます。</li><li>「編集用MP4をダウンロード」を押します。</li><li>取得後、自動で編集用MP4に整えて保存します。保存が始まらない場合は表示された保存ボタンを押してください。</li>';$('#below').textContent='動画は取得後に編集用MP4へ自動で整えます。最大128MB・10分。'}});
 $('#setup .downloadlink').hidden=true;
 $('#setup .subtle').textContent='提供元の混雑や動画の公開状態により取得できない場合があります。広告ポップアップは許可しない設定です。取得画面が表示されない場合はページを更新してください。';
 $('#engine').textContent='ログイン不要';
